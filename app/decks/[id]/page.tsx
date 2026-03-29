@@ -58,6 +58,7 @@ export default function DeckView() {
           const cardsQuery = query(
             collection(db, 'cards'),
             where('deckId', '==', deckId),
+            where('userId', '==', user.id),
             orderBy('createdAt', 'desc')
           );
           const cardsSnap = await getDocs(cardsQuery);

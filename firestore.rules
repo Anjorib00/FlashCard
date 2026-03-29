@@ -1,59 +1,10 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required, immutable) - user ID
-    //   - email: string (required, immutable) - user email
-    //   - name: string (required) - user display name
-    //   - createdAt: timestamp (required, immutable) - creation time
-    //
-    // Collection: decks
-    // Document ID: {deckId}
-    // Fields:
-    //   - userId: string (required, immutable) - owner ID
-    //   - title: string (required) - deck title
-    //   - description: string (optional) - deck description
-    //   - tags: list of strings (optional) - deck tags
-    //   - isPublic: boolean (optional) - public visibility
-    //   - createdAt: timestamp (required, immutable) - creation time
-    //   - updatedAt: timestamp (required) - last update time
-    //
-    // Collection: cards
-    // Document ID: {cardId}
-    // Fields:
-    //   - deckId: string (required, immutable) - parent deck ID
-    //   - userId: string (required, immutable) - owner ID
-    //   - front: string (required) - front content
-    //   - back: string (required) - back content
-    //   - tags: list of strings (optional) - card tags
-    //   - createdAt: timestamp (required, immutable) - creation time
-    //   - updatedAt: timestamp (required) - last update time
-    //   - repetitions: number (optional) - review count
-    //   - easeFactor: number (optional) - SM-2 ease factor
-    //   - interval: number (optional) - SM-2 interval
-    //   - nextReviewDate: timestamp (optional) - next review date
-    //
-    // Collection: reviews
-    // Document ID: {reviewId}
-    // Fields:
-    //   - cardId: string (required, immutable) - card reviewed
-    //   - userId: string (required, immutable) - user who reviewed
-    //   - rating: number (required, immutable) - rating 1-4
-    //   - createdAt: timestamp (required, immutable) - review time
-    //
-    // ===============================================================
-
+    
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -66,12 +17,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == resource.data.userId;
     }
     
-    function uidUnchanged(field) {
-      return !(field in request.resource.data) || request.resource.data[field] == request.auth.uid;
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
     }
     
-    function uidNotModified(field) {
-      return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
     }
     
     function hasRequiredFields(fields) {
@@ -85,97 +36,69 @@ service cloud.firestore {
     }
     
     function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-    
-    function isValidList(listField, maxSize) {
-      return !(listField in request.resource.data) || 
-             (request.resource.data[listField] is list && request.resource.data[listField].size() <= maxSize);
-    }
-    
-    function areImmutableFieldsUnchanged(fields) {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
 
     // ===============================================================
     // Domain Validators
     // ===============================================================
-
-    function isValidUser() {
-      return hasRequiredFields(['uid', 'email', 'name', 'createdAt']) &&
-             request.resource.data.uid == request.auth.uid &&
-             isValidEmail(request.resource.data.email) &&
-             validStringLength('name', 1, 100) &&
-             request.resource.data.createdAt is timestamp;
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2000)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
     }
 
-    function isValidDeck() {
-      return hasRequiredFields(['userId', 'title', 'createdAt', 'updatedAt']) &&
-             request.resource.data.userId == request.auth.uid &&
-             validStringLength('title', 1, 200) &&
-             (!('description' in request.resource.data) || validStringLength('description', 0, 2000)) &&
-             isValidList('tags', 20) &&
-             (!('isPublic' in request.resource.data) || request.resource.data.isPublic is bool) &&
-             request.resource.data.createdAt is timestamp &&
-             request.resource.data.updatedAt is timestamp;
+    function isValidDeck(data) {
+      return data.keys().hasAll(['title', 'userId', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.userId == request.auth.uid &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+             (!('isPublic' in data) || data.isPublic is bool) &&
+             (!('cardCount' in data) || data.cardCount is number) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
-    function isValidCard() {
-      return hasRequiredFields(['deckId', 'userId', 'front', 'back', 'createdAt', 'updatedAt']) &&
-             request.resource.data.userId == request.auth.uid &&
-             request.resource.data.deckId is string && request.resource.data.deckId.size() > 0 &&
-             validStringLength('front', 1, 5000) &&
-             validStringLength('back', 1, 5000) &&
-             isValidList('tags', 20) &&
-             request.resource.data.createdAt is timestamp &&
-             request.resource.data.updatedAt is timestamp &&
-             (!('repetitions' in request.resource.data) || request.resource.data.repetitions is number) &&
-             (!('easeFactor' in request.resource.data) || request.resource.data.easeFactor is number) &&
-             (!('interval' in request.resource.data) || request.resource.data.interval is number) &&
-             (!('nextReviewDate' in request.resource.data) || request.resource.data.nextReviewDate is timestamp);
-    }
-
-    function isValidReview() {
-      return hasRequiredFields(['cardId', 'userId', 'rating', 'createdAt']) &&
-             request.resource.data.userId == request.auth.uid &&
-             request.resource.data.cardId is string && request.resource.data.cardId.size() > 0 &&
-             request.resource.data.rating is number && request.resource.data.rating >= 1 && request.resource.data.rating <= 4 &&
-             request.resource.data.createdAt is timestamp;
+    function isValidCard(data) {
+      return data.keys().hasAll(['deckId', 'front', 'back', 'userId', 'createdAt']) &&
+             data.deckId is string && data.deckId.size() > 0 &&
+             data.front is string && data.front.size() > 0 && data.front.size() <= 5000 &&
+             data.back is string && data.back.size() > 0 && data.back.size() <= 5000 &&
+             data.userId == request.auth.uid &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+             (!('nextReviewDate' in data) || data.nextReviewDate is timestamp) &&
+             (!('interval' in data) || data.interval is number) &&
+             (!('easeFactor' in data) || data.easeFactor is number) &&
+             (!('repetitions' in data) || data.repetitions is number) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
-
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser();
-      allow update: if isOwner(userId) && isValidUser() && areImmutableFieldsUnchanged(['uid', 'email', 'createdAt']);
-      allow delete: if false; // Users cannot be deleted directly from client
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && uidNotModified();
+      allow delete: if isOwner(userId);
     }
 
     match /decks/{deckId} {
-      allow read: if isDocOwner() || (resource.data.isPublic == true);
-      allow create: if isAuthenticated() && isValidDeck();
-      allow update: if isDocOwner() && isValidDeck() && areImmutableFieldsUnchanged(['userId', 'createdAt']);
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || resource.data.isPublic == true);
+      allow create: if isAuthenticated() && isValidDeck(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidDeck(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     match /cards/{cardId} {
-      // Allow read if user owns the card, or if the card belongs to a public deck
-      allow read: if isDocOwner() || 
-                  (exists(/databases/$(database)/documents/decks/$(resource.data.deckId)) && 
-                   get(/databases/$(database)/documents/decks/$(resource.data.deckId)).data.isPublic == true);
-      allow create: if isAuthenticated() && isValidCard();
-      allow update: if isDocOwner() && isValidCard() && areImmutableFieldsUnchanged(['userId', 'deckId', 'createdAt']);
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isValidCard(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCard(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
-    }
-
-    match /reviews/{reviewId} {
-      allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidReview();
-      allow update: if false; // Reviews are immutable
-      allow delete: if false; // Reviews cannot be deleted
     }
   }
 }
