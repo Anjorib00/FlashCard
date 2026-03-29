@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the FlashMind app.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID." },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Deck": {
+      "title": "Deck",
+      "description": "A collection of flashcards.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "isPublic": { "type": "boolean" },
+        "userId": { "type": "string", "description": "The ID of the user who owns the deck." },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" },
+        "cardCount": { "type": "number" }
+      },
+      "required": ["title", "userId", "createdAt"]
+    },
+    "Card": {
+      "title": "Card",
+      "description": "A single flashcard.",
+      "type": "object",
+      "properties": {
+        "deckId": { "type": "string" },
+        "front": { "type": "string" },
+        "back": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" },
+        "nextReviewDate": { "type": "timestamp" },
+        "interval": { "type": "number" },
+        "easeFactor": { "type": "number" },
+        "repetitions": { "type": "number" }
+      },
+      "required": ["deckId", "front", "back", "userId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles."
+    },
+    "/decks/{deckId}": {
+      "schema": { "$ref": "#/entities/Deck" },
+      "description": "Flashcard decks."
+    },
+    "/cards/{cardId}": {
+      "schema": { "$ref": "#/entities/Card" },
+      "description": "Individual flashcards."
+    }
+  }
+}
