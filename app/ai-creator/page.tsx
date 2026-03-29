@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '@/store/useStore';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { GoogleGenAI, Type } from '@google/genai';
+import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function AICreator() {
   const [topic, setTopic] = useState('');
@@ -14,29 +14,27 @@ export default function AICreator() {
   const [loading, setLoading] = useState(false);
   const [generatedCards, setGeneratedCards] = useState<any[]>([]);
   const [deckTitle, setDeckTitle] = useState('');
-  const { user, isAuthReady } = useAuthStore();
+  const { user } = useAuthStore();
   const router = useRouter();
-
-  useEffect(() => {
-    if (isAuthReady && !user) {
-      router.push('/login');
-    }
-  }, [isAuthReady, user, router]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    
     setLoading(true);
     setGeneratedCards([]);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
       
+      const prompt = `Generate ${count} high-quality flashcards based on the following topic or text: ${topic}.
+      The flashcards should be concise, clear, and focus on key concepts.
+      Return the result as a JSON array of objects, where each object has a 'front' (the question or concept) and a 'back' (the answer or explanation).`;
+
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Generate ${count} flashcards about the following topic: ${topic}`,
+        contents: prompt,
         config: {
-          systemInstruction: 'You are an expert educator creating high-quality flashcards. Provide concise and accurate information.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.ARRAY,
@@ -45,16 +43,11 @@ export default function AICreator() {
               properties: {
                 front: {
                   type: Type.STRING,
-                  description: 'The question or concept on the front of the flashcard.',
+                  description: 'The front of the flashcard (question or concept)',
                 },
                 back: {
                   type: Type.STRING,
-                  description: 'The answer or explanation on the back of the flashcard.',
-                },
-                tags: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: '1-3 relevant tags for the flashcard.',
+                  description: 'The back of the flashcard (answer or explanation)',
                 },
               },
               required: ['front', 'back'],
@@ -63,16 +56,14 @@ export default function AICreator() {
         },
       });
 
-      const text = response.text;
-      if (text) {
-        const cards = JSON.parse(text);
-        setGeneratedCards(cards);
-        setDeckTitle(`AI Generated: ${topic}`);
-      } else {
-        console.error('Failed to generate cards');
-      }
+      const jsonStr = response.text?.trim() || '[]';
+      const cards = JSON.parse(jsonStr);
+      
+      setGeneratedCards(cards);
+      setDeckTitle(`AI Generated: ${topic.substring(0, 30)}${topic.length > 30 ? '...' : ''}`);
     } catch (error) {
       console.error('Error generating cards', error);
+      alert('Failed to generate cards. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -90,36 +81,37 @@ export default function AICreator() {
         tags: ['ai-generated', topic.split(' ')[0].toLowerCase()],
         userId: user.id,
         isPublic: false,
-        cardCount: generatedCards.length,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
-      // 2. Create Cards
+      // 2. Create Cards in a batch
+      const batch = writeBatch(db);
       for (const card of generatedCards) {
-        await addDoc(collection(db, 'cards'), {
+        const cardRef = doc(collection(db, 'cards'));
+        batch.set(cardRef, {
           deckId: deckRef.id,
+          userId: user.id,
           front: card.front,
           back: card.back,
           tags: card.tags || [],
-          userId: user.id,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          nextReviewDate: new Date(),
-          interval: 0,
-          easeFactor: 2.5,
           repetitions: 0,
+          easeFactor: 2.5,
+          interval: 0,
+          nextReviewDate: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         });
       }
+      await batch.commit();
 
       router.push(`/decks/${deckRef.id}`);
     } catch (error) {
       console.error('Failed to save deck', error);
+      alert('Failed to save deck. Please try again.');
       setLoading(false);
     }
   };
-
-  if (!isAuthReady) return null;
 
   return (
     <div className="min-h-screen bg-surface">

@@ -1,24 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '@/store/useStore';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function NewDeck() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
-  const { user, isAuthReady } = useAuthStore();
+  const { user } = useAuthStore();
   const router = useRouter();
-
-  useEffect(() => {
-    if (isAuthReady && !user) {
-      router.push('/login');
-    }
-  }, [isAuthReady, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,14 +20,13 @@ export default function NewDeck() {
 
     try {
       const docRef = await addDoc(collection(db, 'decks'), {
+        userId: user.id,
         title,
         description,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-        userId: user.id,
         isPublic: false,
-        cardCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       router.push(`/decks/${docRef.id}`);
@@ -41,8 +34,6 @@ export default function NewDeck() {
       console.error('Failed to create deck', error);
     }
   };
-
-  if (!isAuthReady) return null;
 
   return (
     <div className="min-h-screen bg-surface">

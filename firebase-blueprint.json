@@ -2,65 +2,160 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "A user of the FlashMind app.",
+      "description": "A user of the FlashMind application",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "description": "The user's unique ID." },
-        "email": { "type": "string", "format": "email" },
-        "name": { "type": "string" },
-        "photoURL": { "type": "string", "format": "uri" },
-        "createdAt": { "type": "timestamp" }
+        "uid": {
+          "type": "string",
+          "description": "The user's unique identifier"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address"
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's display name"
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the user account was created"
+        }
       },
-      "required": ["uid", "email"]
+      "required": ["uid", "email", "name", "createdAt"]
     },
     "Deck": {
       "title": "Deck",
-      "description": "A collection of flashcards.",
+      "description": "A collection of flashcards",
       "type": "object",
       "properties": {
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" } },
-        "isPublic": { "type": "boolean" },
-        "userId": { "type": "string", "description": "The ID of the user who owns the deck." },
-        "createdAt": { "type": "timestamp" },
-        "updatedAt": { "type": "timestamp" },
-        "cardCount": { "type": "number" }
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this deck"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the deck"
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the deck"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags associated with the deck"
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the deck is public or private"
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the deck was created"
+        },
+        "updatedAt": {
+          "type": "timestamp",
+          "description": "When the deck was last updated"
+        }
       },
-      "required": ["title", "userId", "createdAt"]
+      "required": ["userId", "title", "createdAt", "updatedAt"]
     },
     "Card": {
       "title": "Card",
-      "description": "A single flashcard.",
+      "description": "A single flashcard within a deck",
       "type": "object",
       "properties": {
-        "deckId": { "type": "string" },
-        "front": { "type": "string" },
-        "back": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" } },
-        "userId": { "type": "string" },
-        "createdAt": { "type": "timestamp" },
-        "updatedAt": { "type": "timestamp" },
-        "nextReviewDate": { "type": "timestamp" },
-        "interval": { "type": "number" },
-        "easeFactor": { "type": "number" },
-        "repetitions": { "type": "number" }
+        "deckId": {
+          "type": "string",
+          "description": "The ID of the deck this card belongs to"
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this card"
+        },
+        "front": {
+          "type": "string",
+          "description": "The front content of the card"
+        },
+        "back": {
+          "type": "string",
+          "description": "The back content of the card"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags associated with the card"
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the card was created"
+        },
+        "updatedAt": {
+          "type": "timestamp",
+          "description": "When the card was last updated"
+        },
+        "repetitions": {
+          "type": "number",
+          "description": "Number of times the card has been reviewed"
+        },
+        "easeFactor": {
+          "type": "number",
+          "description": "The ease factor for spaced repetition"
+        },
+        "interval": {
+          "type": "number",
+          "description": "The interval before the next review"
+        },
+        "nextReviewDate": {
+          "type": "timestamp",
+          "description": "The date when the card should be reviewed next"
+        }
       },
-      "required": ["deckId", "front", "back", "userId", "createdAt"]
+      "required": ["deckId", "userId", "front", "back", "createdAt", "updatedAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A record of a card review",
+      "type": "object",
+      "properties": {
+        "cardId": {
+          "type": "string",
+          "description": "The ID of the card reviewed"
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who reviewed the card"
+        },
+        "rating": {
+          "type": "number",
+          "description": "The rating given (1-4)"
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the review occurred"
+        }
+      },
+      "required": ["cardId", "userId", "rating", "createdAt"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
-      "description": "User profiles."
+      "description": "Stores user profiles"
     },
     "/decks/{deckId}": {
       "schema": { "$ref": "#/entities/Deck" },
-      "description": "Flashcard decks."
+      "description": "Stores flashcard decks"
     },
     "/cards/{cardId}": {
       "schema": { "$ref": "#/entities/Card" },
-      "description": "Individual flashcards."
+      "description": "Stores individual flashcards"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Stores review history"
     }
   }
 }

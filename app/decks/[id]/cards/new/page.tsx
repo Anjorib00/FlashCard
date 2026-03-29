@@ -27,6 +27,7 @@ export default function NewCard() {
 
     try {
       const deckId = Array.isArray(id) ? id[0] : id;
+      if (!deckId) return;
       
       await addDoc(collection(db, 'cards'), {
         deckId,

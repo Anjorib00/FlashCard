@@ -1,40 +1,33 @@
 'use client';
-import { useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+
+import { useEffect, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuthStore } from '@/store/useStore';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { login, logout, setAuthReady } = useAuthStore();
+  const { login, logout } = useAuthStore();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Save user to Firestore if not exists
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            uid: user.uid,
-            email: user.email,
-            name: user.displayName,
-            photoURL: user.photoURL,
-            createdAt: new Date(),
-          });
-        }
-
-        const token = await user.getIdToken();
-        login({ id: user.uid, email: user.email!, name: user.displayName }, token);
+        user.getIdToken().then((token) => {
+          login({ id: user.uid, email: user.email || '', name: user.displayName || '' }, token);
+          setLoading(false);
+        });
       } else {
         logout();
+        setLoading(false);
       }
-      setAuthReady(true);
     });
 
     return () => unsubscribe();
-  }, [login, logout, setAuthReady]);
+  }, [login, logout]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-surface text-on-surface">Loading...</div>;
+  }
 
   return <>{children}</>;
 }

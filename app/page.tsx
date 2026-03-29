@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Link from 'next/link';
 
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 interface Deck {
   id: string;
   title: string;
@@ -14,29 +17,40 @@ interface Deck {
 }
 
 export default function Dashboard() {
-  const { user, token } = useAuthStore();
+  const { user, isAuthReady } = useAuthStore();
   const router = useRouter();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) {
+    if (!isAuthReady) return;
+
+    if (!user) {
       router.push('/login');
       return;
     }
 
     const fetchDecks = async () => {
       try {
-        const res = await fetch('/api/decks', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setDecks(data.decks);
-        } else if (res.status === 401) {
-          useAuthStore.getState().logout();
-          router.push('/login');
+        const q = query(
+          collection(db, 'decks'),
+          where('userId', '==', user.id),
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        const fetchedDecks: Deck[] = [];
+        
+        for (const doc of querySnapshot.docs) {
+          const deckData = doc.data();
+          fetchedDecks.push({
+            id: doc.id,
+            title: deckData.title,
+            description: deckData.description,
+            _count: { cards: deckData.cardCount || 0 }
+          });
         }
+        
+        setDecks(fetchedDecks);
       } catch (error) {
         console.error('Failed to fetch decks', error);
       } finally {
@@ -45,9 +59,9 @@ export default function Dashboard() {
     };
 
     fetchDecks();
-  }, [token, router]);
+  }, [user, isAuthReady, router]);
 
-  if (!user || loading) {
+  if (!isAuthReady || loading) {
     return <div className="min-h-screen flex items-center justify-center text-on-surface">Loading...</div>;
   }
 
@@ -64,7 +78,7 @@ export default function Dashboard() {
                 <span className="text-xs font-bold tracking-[0.1em] uppercase text-on-surface-variant font-label">Daily Momentum</span>
               </div>
               <h2 className="text-5xl font-bold font-headline tracking-tighter text-on-surface">15 Day Streak</h2>
-              <p className="mt-2 text-on-surface-variant text-sm">You're in the top 5% of learners this week.</p>
+              <p className="mt-2 text-on-surface-variant text-sm">You&apos;re in the top 5% of learners this week.</p>
             </div>
 
             <div className="bg-surface-container-low p-8 rounded-xl flex flex-col justify-between">

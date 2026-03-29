@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'next';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useStore';
 import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -41,6 +41,7 @@ export default function DeckView() {
     const fetchDeck = async () => {
       try {
         const deckId = Array.isArray(id) ? id[0] : id;
+        if (!deckId) return;
         const deckRef = doc(db, 'decks', deckId);
         const deckSnap = await getDoc(deckRef);
 

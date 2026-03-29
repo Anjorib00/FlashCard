@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'next';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/store/useStore';
 import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -39,6 +39,7 @@ export default function StudyMode() {
     const fetchCards = async () => {
       try {
         const deckId = Array.isArray(id) ? id[0] : id;
+        if (!deckId) return;
         const now = new Date();
         
         const q = query(
@@ -166,7 +167,7 @@ export default function StudyMode() {
         <div className="text-center bg-surface-container p-12 rounded-2xl border border-outline-variant/10">
           <div className="text-6xl mb-6">🎉</div>
           <h2 className="text-3xl font-bold font-headline text-on-surface mb-4">Session Complete!</h2>
-          <p className="text-on-surface-variant mb-8">You've reviewed all due cards in this deck.</p>
+          <p className="text-on-surface-variant mb-8">You&apos;ve reviewed all due cards in this deck.</p>
           <button onClick={() => router.push(`/decks/${id}`)} className="bg-primary text-on-primary px-8 py-3 rounded-xl font-bold text-sm tracking-tight active:scale-95 transition-transform">
             Return to Deck
           </button>
